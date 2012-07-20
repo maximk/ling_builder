@@ -1,0 +1,12 @@
+{application, ling_builder,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { ling_builder_app, []}},
+  {env, []}
+ ]}.
