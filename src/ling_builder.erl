@@ -63,7 +63,8 @@
 		AuthHeader = {"Authorization","Basic " ++ Encoded},
 		Headers = [AuthHeader],
 
-		ImageFile = "vmling-" ++ ProjName,
+		%%ImageFile = "vmling-" ++ ProjName,
+		ImageFile = "vmling",
 
 		Location = "https://" ++ BuildHost ++ "/1/build/" ++ ProjName,
 		case httpc:request(get, {Location,Headers}, [], []) of
@@ -72,9 +73,11 @@
 			rebar_log:log(info, "saving image to ~s [~w byte(s)]~n",
 									[ImageFile,byte_size(ImageBin)]),
 			ok = file:write_file(ImageFile, ImageBin),
-			io:format("Image saved to ~s~n", [ImageFile]);
+			io:format("LBS: image saved to ~s~n", [ImageFile]);
+		{ok,{{_,403,_},_,_}} ->
+			io:format("LBS: image is not available yet~n", []);
 		{ok,{{_,404,_},_,_}} ->
-			io:format("Image is not (yet) available~n", [])
+			io:format("LBS: image is not (yet) available~n", [])
 		end,
 
 		ok

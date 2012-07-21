@@ -80,7 +80,7 @@ handle_call({start_build,ProjName,LingOpts}, _From, Files) ->
 
 	rebar_log:log(info, "build started for '~s'~n", [ProjName]),
 	{ok,Banner} = call_lbs(post, "/build/" ++ ProjName, [], [], LingOpts),
-	io:format("~s - use 'rebar ling-image' to retrieve~n", [Banner]),
+	io:format("LBS: ~s~n", [Banner]),
 	
 	{reply,ok,[]}.
 
@@ -122,11 +122,15 @@ call_lbs(Method, Slug, Hdrs, Body, LingOpts) ->
 
 	{ok,{{_,204,_},_,_}} ->
 		ok;
-	
+
+	{ok,{{_,403,_},_,_}} ->
+		forbidden;
+
 	{ok,{{_,404,_},_,_}} ->
 		not_found;
 
 	Other ->
+		rebar_log:log(error, "~p", [Other]),
 		Other
 	end.
 
