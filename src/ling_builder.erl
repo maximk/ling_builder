@@ -28,7 +28,7 @@
 	if IsBaseDir ->
 
 		ProjName = filename:basename(BaseDir),
-		LingOpts = rebar_config:get(Config, ling_opts, []),
+		LingOpts = rebar_config:get(Config, ling_builder_opts, []),
 		ling_queue:start_build(ProjName, LingOpts);
 
 	true ->
