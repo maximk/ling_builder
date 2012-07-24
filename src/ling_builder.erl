@@ -53,7 +53,7 @@
 		application:start(inets),
 
 		ProjName = filename:basename(BaseDir),
-		LingOpts = rebar_config:get(Config, ling_opts, []),
+		LingOpts = rebar_config:get(Config, ling_builder_opts, []),
 
 		{_,BuildHost} = lists:keyfind(build_host, 1, LingOpts),
 		{_,UserName} = lists:keyfind(username, 1, LingOpts),
