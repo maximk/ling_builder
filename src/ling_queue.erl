@@ -116,7 +116,7 @@ call_lbs(Method, Slug, Hdrs, Body, LingOpts) ->
 			{Location,Headers,"application/octet-stream",Body}
 		end,
 
-	case httpc:request(Method, Request, [], []) of
+	case httpc:request(Method, Request, [{timeout,infinity}], []) of
 	{ok,{{_,200,_},_,RespBody}} -> 
 		{ok,RespBody};
 

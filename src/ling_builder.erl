@@ -11,7 +11,8 @@
 		ok
 	end,
 
-	BaseDir = rebar_config:get_global(Config, base_dir, undefined),
+	%%BaseDir = rebar_config:get_global(base_dir, undefined),
+	BaseDir = rebar_config:get_xconf(Config, base_dir),
 	IsBaseDir = rebar_utils:get_cwd() =:= BaseDir,
 
 	IsPluginDir = filename:basename(rebar_utils:get_cwd()) =:= "ling_builder",
@@ -39,7 +40,8 @@
 
 'ling-image'(Config, _AppFile) ->
 
-	BaseDir = rebar_config:get_global(Config, base_dir, undefined),
+	%%BaseDir = rebar_config:get_global(base_dir, undefined),
+	BaseDir = rebar_config:get_xconf(Config, base_dir),
 	IsBaseDir = rebar_utils:get_cwd() =:= BaseDir,
 
 	if not IsBaseDir ->
