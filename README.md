@@ -1,4 +1,4 @@
 ling_builder
 ============
 
-A rebar plugin for working with Ling builld service
+A rebar plugin for the Ling builld service
