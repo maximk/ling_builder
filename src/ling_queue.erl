@@ -49,37 +49,21 @@ handle_call({start_build,ProjName,LingOpts}, _From, Files) ->
 	application:start(ssl),
 	application:start(inets),
 
-	AH = {"Accept","text/plain"},
-	case call_lbs(get, "/projects/" ++ ProjName, [AH], none, LingOpts) of
-	{ok,Body} ->
-		RemoteFiles = string:tokens(Body, "|"),
+	{ok,Cwd} = file:get_cwd(),
+	RelFiles = [relativise(F, Cwd) || F <- Files],
 
-		FileNames = [filename:basename(F) || F <- Files],
-		DeleteUs = lists:filter(fun(F) ->
-				not lists:member(F, FileNames)
-			end, RemoteFiles),
+	rebar_log:log(info, "compressing ~w file(s): ~p~n",
+							[length(RelFiles),RelFiles]),
+	{ok,{_,ZipData}} = zip:zip("tmptmp.zip", RelFiles, [memory]),
 
-		lists:foreach(fun(F) ->
-				rebar_log:log(info, "delete stale ~s~n", [F]),
-				Slug = "/projects/" ++ ProjName ++ "/" ++ F,
-				ok = call_lbs(delete, Slug, [], none, LingOpts)
-			end, DeleteUs);
-	
-	not_found ->
-		ok = call_lbs(put, "/projects/" ++ ProjName, [], [], LingOpts)
-	end,
-
-	lists:foreach(fun(F) ->
-		FileName = filename:basename(F),
-		{ok,Bin} = file:read_file(F),
-		rebar_log:log(info, "upload ~s [~w byte(s)]~n",
-								[FileName,byte_size(Bin)]),
-		Slug = "/projects/" ++ ProjName ++ "/" ++ FileName,
-		ok = call_lbs(put, Slug, [], Bin, LingOpts)
-	end, Files),
+	rebar_log:log(info, "uploading the project archive [~w byte(s)]~n",
+							[size(ZipData)]),
+ 	ok = call_lbs(put, "/projects/" ++ ProjName, [],
+							{"application/zip",ZipData}, LingOpts),
+	rebar_log:log(info, "project archive uploaded~n", []),
 
 	rebar_log:log(info, "build started for '~s'~n", [ProjName]),
-	{ok,Banner} = call_lbs(post, "/build/" ++ ProjName, [], [], LingOpts),
+	{ok,Banner} = call_lbs(post, "/build/" ++ ProjName, [], {[],[]}, LingOpts),
 	io:format("LBS: ~s~n", [Banner]),
 	
 	{reply,ok,[]}.
@@ -110,10 +94,11 @@ call_lbs(Method, Slug, Hdrs, Body, LingOpts) ->
 	Headers = [AuthHeader] ++ Hdrs,
 
 	Location = "https://" ++ BuildHost ++ "/1" ++ Slug,
-	Request = if Body =:= none ->
+	Request = case Body of
+		none ->
 			{Location,Headers};
-		true ->
-			{Location,Headers,"application/octet-stream",Body}
+		{CT,BodyData} ->
+			{Location,Headers,CT,BodyData}
 		end,
 
 	case httpc:request(Method, Request, [{timeout,infinity}], []) of
@@ -132,6 +117,12 @@ call_lbs(Method, Slug, Hdrs, Body, LingOpts) ->
 	Other ->
 		rebar_log:log(error, "~p", [Other]),
 		Other
+	end.
+
+relativise(File, Cwd) ->
+	case lists:prefix(Cwd, File) of
+	true ->
+		lists:nthtail(length(Cwd) +1, File)
 	end.
 
 %%EOF

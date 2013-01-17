@@ -30,6 +30,7 @@
 
 		ProjName = filename:basename(BaseDir),
 		LingOpts = rebar_config:get(Config, ling_builder_opts, []),
+		add_misc_files(LingOpts),
 		ling_queue:start_build(ProjName, LingOpts);
 
 	true ->
@@ -84,5 +85,14 @@
 
 		ok
 	end.
+
+add_misc_files([]) ->
+	ok;
+add_misc_files([{misc_files,Pat}|LingOpts]) when is_list(Pat) ->
+	Files = [filename:absname(F) || F <- filelib:wildcard(Pat)],
+	ling_queue:add(Files),
+	add_misc_files(LingOpts);
+add_misc_files([_|LingOpts]) ->
+	add_misc_files(LingOpts).
 
 %%EOF
