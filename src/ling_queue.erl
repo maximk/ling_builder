@@ -29,7 +29,7 @@ add(Files) ->
 	gen_server:call(?SERVER, {add,Files}).
 
 start_build(ProjName, LingOpts) ->
-	gen_server:call(?SERVER, {start_build,ProjName,LingOpts}).
+	gen_server:call(?SERVER, {start_build,ProjName,LingOpts}, infinity).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
