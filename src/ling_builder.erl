@@ -88,7 +88,7 @@
 
 add_misc_files([]) ->
 	ok;
-add_misc_files([{misc_files,Pat}|LingOpts]) when is_list(Pat) ->
+add_misc_files([{import,Pat}|LingOpts]) when is_list(Pat) ->
 	Files = [filename:absname(F) || F <- filelib:wildcard(Pat)],
 	ling_queue:add(Files),
 	add_misc_files(LingOpts);

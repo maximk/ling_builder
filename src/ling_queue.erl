@@ -43,30 +43,12 @@ handle_call({add,More}, _From, Files) ->
 
 handle_call({start_build,ProjName,LingOpts}, _From, Files) ->
 
-	rebar_log:log(info, "starting inets~n", []),
-	application:start(crypto),
-	application:start(public_key),
-	application:start(ssl),
-	application:start(inets),
-
-	{ok,Cwd} = file:get_cwd(),
-	RelFiles = [relativise(F, Cwd) || F <- Files],
-
-	rebar_log:log(info, "compressing ~w file(s): ~p~n",
-							[length(RelFiles),RelFiles]),
-	{ok,{_,ZipData}} = zip:zip("tmptmp.zip", RelFiles, [memory]),
-
-	rebar_log:log(info, "uploading the project archive [~w byte(s)]~n",
-							[size(ZipData)]),
- 	ok = call_lbs(put, "/projects/" ++ ProjName, [],
-							{"application/zip",ZipData}, LingOpts),
-	rebar_log:log(info, "project archive uploaded~n", []),
-
-	rebar_log:log(info, "build started for '~s'~n", [ProjName]),
-	{ok,Banner} = call_lbs(post, "/build/" ++ ProjName, [], {[],[]}, LingOpts),
-	io:format("LBS: ~s~n", [Banner]),
-	
-	{reply,ok,[]}.
+	case check_opts(LingOpts) of
+	{ConnOpts,BuildOpts} ->
+		start_build(ProjName, Files, ConnOpts, BuildOpts);
+	Error ->
+		{reply,{error,Error},[]}
+	end.
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -84,10 +66,84 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-call_lbs(Method, Slug, Hdrs, Body, LingOpts) ->
-	{_,BuildHost} = lists:keyfind(build_host, 1, LingOpts),
-	{_,UserName} = lists:keyfind(username, 1, LingOpts),
-	{_,Password} = lists:keyfind(password, 1, LingOpts),
+%% Recorgized options:
+%%
+%%	{require,[atom()]}
+%%	{ext_files,[ext_spec()]}
+%%
+%%	ext_spec() :: {file_host(),[mount()]}
+%%	file_host(): string()					%% e.g. 192.168.0.2:564
+%%	mount() :: {rem_path(),loc_path()}
+%%	rem_path() :: string()
+%%	loc_path() :: string()
+
+check_opts(Opts) ->
+	check_opts(Opts, [], []).
+
+check_opts([], ConnOpts, BuildOpts) ->
+	{ConnOpts,BuildOpts};
+check_opts([{build_host,Host} =Opt|Opts], ConnOpts, BuildOpts)
+		when is_list(Host) ->
+	check_opts(Opts, [Opt|ConnOpts], BuildOpts);
+check_opts([{username,Name} =Opt|Opts], ConnOpts, BuildOpts)
+		when is_list(Name) ->
+	check_opts(Opts, [Opt|ConnOpts], BuildOpts);
+check_opts([{password,Pwd} =Opt|Opts], ConnOpts, BuildOpts)
+		when is_list(Pwd) ->
+	check_opts(Opts, [Opt|ConnOpts], BuildOpts);
+check_opts([{import,_}|Opts], ConnOpts, BuildOpts) ->
+	%% ignore the options -- handled elsewhere
+	check_opts(Opts, ConnOpts, BuildOpts);
+check_opts([{import_lib,Lib} =Opt|Opts], ConnOpts, BuildOpts)
+		when is_atom(Lib) ->
+	check_opts(Opts, ConnOpts, [Opt|BuildOpts]);
+check_opts([Opt|_Opts], _ConnOpts, _BuildOpts) ->
+	rebar_log:log(error, "invalid option: ~p~n", [Opt]),
+	invalid.
+
+start_build(ProjName, Files, ConnOpts, BuildOpts) ->
+
+	rebar_log:log(info, "starting inets~n", []),
+	application:start(crypto),
+	application:start(public_key),
+	application:start(ssl),
+	application:start(inets),
+
+	{ok,Cwd} = file:get_cwd(),
+	RelFiles = [relativise(F, Cwd) || F <- Files],
+
+	rebar_log:log(info, "compressing ~w file(s): ~p~n",
+							[length(RelFiles),RelFiles]),
+	{ok,{_,ZipData}} = zip:zip("tmptmp.zip", RelFiles, [memory]),
+
+	rebar_log:log(info, "uploading the project archive [~w byte(s)]~n",
+							[size(ZipData)]),
+ 	ok = call_lbs(put, "/projects/" ++ ProjName, [],
+							{"application/zip",ZipData}, ConnOpts),
+	rebar_log:log(info, "project archive uploaded~n", []),
+
+	ReqBody = build_request_body(BuildOpts),
+
+	rebar_log:log(info, "build started for '~s'~n", [ProjName]),
+	{ok,Banner} = call_lbs(post, "/build/" ++ ProjName, [],
+							{"application/json",ReqBody}, ConnOpts),
+	io:format("LBS: ~s~n", [Banner]),
+	
+	{reply,ok,[]}.
+
+build_request_body(BuildOpts) ->
+	Apps = [App || {_,App} <- lists:filter(fun({import_lib,_}) -> true;
+					(_) -> false end, BuildOpts)],
+	Json = {struct,[
+		{import_lib,
+			[erlang:atom_to_binary(A, utf8) || A <- Apps]}
+	]},
+	list_to_binary(mochijson2:encode(Json)).
+
+call_lbs(Method, Slug, Hdrs, Body, ConnOpts) ->
+	{_,BuildHost} = lists:keyfind(build_host, 1, ConnOpts),
+	{_,UserName} = lists:keyfind(username, 1, ConnOpts),
+	{_,Password} = lists:keyfind(password, 1, ConnOpts),
 
 	Encoded = base64:encode_to_string(lists:append([UserName,":",Password])),
 	AuthHeader = {"Authorization","Basic " ++ Encoded},
