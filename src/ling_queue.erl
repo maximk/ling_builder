@@ -66,17 +66,6 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-%% Recorgized options:
-%%
-%%	{require,[atom()]}
-%%	{ext_files,[ext_spec()]}
-%%
-%%	ext_spec() :: {file_host(),[mount()]}
-%%	file_host(): string()					%% e.g. 192.168.0.2:564
-%%	mount() :: {rem_path(),loc_path()}
-%%	rem_path() :: string()
-%%	loc_path() :: string()
-
 check_opts(Opts) ->
 	check_opts(Opts, [], []).
 

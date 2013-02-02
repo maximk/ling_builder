@@ -69,7 +69,8 @@
 		%%ImageFile = "vmling-" ++ ProjName,
 		ImageFile = "vmling",
 
-		Location = "https://" ++ BuildHost ++ "/1/build/" ++ ProjName,
+		Location = "https://" ++ BuildHost ++
+				"/1/build/" ++ ProjName ++ "/image",
 		case httpc:request(get, {Location,Headers}, [], []) of
 		{ok,{{_,200,_},_,RespBody}} ->
 			ImageBin = list_to_binary(RespBody),
