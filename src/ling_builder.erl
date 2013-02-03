@@ -67,7 +67,7 @@ do_ling_build(Config, Continue) ->
 	end.
 
 retrieve_image(ProjName, LingOpts) ->
-	case build_service:call(get, "/projects/" ++ ProjName ++ "/image",
+	case build_service:call(get, "/build/" ++ ProjName ++ "/image",
 									[], none, LingOpts) of
 	{ok,RespBody} ->
 
@@ -97,7 +97,7 @@ retrieve_image(ProjName, LingOpts) ->
 	do_ling_build(Config, Continue).
 
 get_build_status(ProjName, LingOpts) ->
-	case build_service:call(get, "/projects/" ++ ProjName ++ "/status",
+	case build_service:call(get, "/build/" ++ ProjName ++ "/status",
 										[], none, LingOpts) of
 	{ok,"0"} ->
 		ok;
