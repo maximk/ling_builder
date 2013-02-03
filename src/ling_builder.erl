@@ -1,8 +1,11 @@
 -module(ling_builder).
 
--export(['ling-build'/2,'ling-image'/2]).
+-export(['ling-build'/2,'ling-image'/2,'ling-build-image'/2]).
 
 'ling-build'(Config, _AppFile) ->
+	do_ling_build(Config, fun(_ProjName, _LingOpts) -> ok end).
+
+do_ling_build(Config, Continue) ->
 
 	case whereis(ling_queue) of
 	undefined ->
@@ -31,7 +34,9 @@
 		ProjName = filename:basename(BaseDir),
 		LingOpts = rebar_config:get(Config, ling_builder_opts, []),
 		add_misc_files(LingOpts),
-		ling_queue:start_build(ProjName, LingOpts);
+		ling_queue:start_build(ProjName, LingOpts),
+
+		Continue(ProjName, LingOpts);
 
 	true ->
 		skip
@@ -58,38 +63,57 @@
 		ProjName = filename:basename(BaseDir),
 		LingOpts = rebar_config:get(Config, ling_builder_opts, []),
 
-		{_,BuildHost} = lists:keyfind(build_host, 1, LingOpts),
-		{_,UserName} = lists:keyfind(username, 1, LingOpts),
-		{_,Password} = lists:keyfind(password, 1, LingOpts),
+		retrieve_image(ProjName, LingOpts)
+	end.
 
-		Encoded = base64:encode_to_string(lists:append([UserName,":",Password])),
-		AuthHeader = {"Authorization","Basic " ++ Encoded},
-		Headers = [AuthHeader],
+retrieve_image(ProjName, LingOpts) ->
+	case build_service:call(get, "/projects/" ++ ProjName ++ "/image",
+									[], none, LingOpts) of
+	{ok,RespBody} ->
 
-		%%ImageFile = "vmling-" ++ ProjName,
 		ImageFile = "vmling",
+		ImageBin = list_to_binary(RespBody),
+		rebar_log:log(info, "saving image to ~s [~w byte(s)]~n",
+								[ImageFile,byte_size(ImageBin)]),
+		ok = file:write_file(ImageFile, ImageBin),
+		io:format("LBS: image saved to ~s~n", [ImageFile]);
 
-		Location = "https://" ++ BuildHost ++
-				"/1/build/" ++ ProjName ++ "/image",
-		case httpc:request(get, {Location,Headers}, [], []) of
-		{ok,{{_,200,_},_,RespBody}} ->
-			ImageBin = list_to_binary(RespBody),
-			rebar_log:log(info, "saving image to ~s [~w byte(s)]~n",
-									[ImageFile,byte_size(ImageBin)]),
-			ok = file:write_file(ImageFile, ImageBin),
-			io:format("LBS: image saved to ~s~n", [ImageFile]);
-		{ok,{{_,403,_},_,_}} ->
-			io:format("LBS: image is not available yet~n", []);
-		{ok,{{_,404,_},_,_}} ->
-			io:format("LBS: image is not (yet) available~n", [])
-		end,
+	_Other ->
+		io:format("LBS: image is not (yet?) available~n", [])
+	end.
 
-		ok
+'ling-build-image'(Config, _AppFile) ->
+
+	Continue = fun(ProjName, LingOpts) ->
+		case get_build_status(ProjName, LingOpts) of
+		ok ->
+			retrieve_image(ProjName, LingOpts);
+		failed ->
+			io:format("LBS: **** build failed ****~n", [])
+		end
+	end,
+
+	%% same as ling-build but with different continuation
+	do_ling_build(Config, Continue).
+
+get_build_status(ProjName, LingOpts) ->
+	case build_service:call(get, "/projects/" ++ ProjName ++ "/status",
+										[], none, LingOpts) of
+	{ok,"0"} ->
+		ok;
+
+	{ok,"1"} ->
+		receive after 3000 -> ok end,
+		get_build_status(ProjName, LingOpts);
+
+	{ok,"99"} ->
+		failed
 	end.
 
 add_misc_files([]) ->
 	ok;
 add_misc_files([{import,Pat}|LingOpts]) when is_list(Pat) ->
+
 	Files = [filename:absname(F) || F <- filelib:wildcard(Pat)],
 	ling_queue:add(Files),
 	add_misc_files(LingOpts);

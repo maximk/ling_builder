@@ -107,14 +107,14 @@ start_build(ProjName, Files, ConnOpts, BuildOpts) ->
 
 	rebar_log:log(info, "uploading the project archive [~w byte(s)]~n",
 							[size(ZipData)]),
- 	ok = call_lbs(put, "/projects/" ++ ProjName, [],
+ 	ok = build_service:call(put, "/projects/" ++ ProjName, [],
 							{"application/zip",ZipData}, ConnOpts),
 	rebar_log:log(info, "project archive uploaded~n", []),
 
 	ReqBody = build_request_body(BuildOpts),
 
 	rebar_log:log(info, "build started for '~s'~n", [ProjName]),
-	{ok,Banner} = call_lbs(post, "/build/" ++ ProjName, [],
+	{ok,Banner} = build_service:call(post, "/build/" ++ ProjName, [],
 							{"application/json",ReqBody}, ConnOpts),
 	io:format("LBS: ~s~n", [Banner]),
 	
@@ -128,41 +128,6 @@ build_request_body(BuildOpts) ->
 			[erlang:atom_to_binary(A, utf8) || A <- Apps]}
 	]},
 	list_to_binary(mochijson2:encode(Json)).
-
-call_lbs(Method, Slug, Hdrs, Body, ConnOpts) ->
-	{_,BuildHost} = lists:keyfind(build_host, 1, ConnOpts),
-	{_,UserName} = lists:keyfind(username, 1, ConnOpts),
-	{_,Password} = lists:keyfind(password, 1, ConnOpts),
-
-	Encoded = base64:encode_to_string(lists:append([UserName,":",Password])),
-	AuthHeader = {"Authorization","Basic " ++ Encoded},
-	Headers = [AuthHeader] ++ Hdrs,
-
-	Location = "https://" ++ BuildHost ++ "/1" ++ Slug,
-	Request = case Body of
-		none ->
-			{Location,Headers};
-		{CT,BodyData} ->
-			{Location,Headers,CT,BodyData}
-		end,
-
-	case httpc:request(Method, Request, [{timeout,infinity}], []) of
-	{ok,{{_,200,_},_,RespBody}} -> 
-		{ok,RespBody};
-
-	{ok,{{_,204,_},_,_}} ->
-		ok;
-
-	{ok,{{_,403,_},_,_}} ->
-		forbidden;
-
-	{ok,{{_,404,_},_,_}} ->
-		not_found;
-
-	Other ->
-		rebar_log:log(error, "~p", [Other]),
-		Other
-	end.
 
 relativise(File, Cwd) ->
 	case lists:prefix(Cwd, File) of
