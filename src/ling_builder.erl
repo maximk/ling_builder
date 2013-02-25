@@ -113,8 +113,18 @@ get_build_status(ProjName, LingOpts) ->
 add_misc_files([]) ->
 	ok;
 add_misc_files([{import,Pat}|LingOpts]) when is_list(Pat) ->
-
 	Files = [filename:absname(F) || F <- filelib:wildcard(Pat)],
+
+	case lists:filter(fun(File) -> filename:dirname(File) =:= "." end, Files) of
+	[] ->
+		ok;
+
+	Forbidden ->
+		rebar_log:log(error, "imported files must be in a subdirectory: ~p",
+				[Forbidden]),
+		exit(cannot_import)
+	end,
+
 	ling_queue:add(Files),
 	add_misc_files(LingOpts);
 add_misc_files([_|LingOpts]) ->
