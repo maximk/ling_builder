@@ -14,8 +14,7 @@ do_ling_build(Config, Continue) ->
 		ok
 	end,
 
-	%%BaseDir = rebar_config:get_global(base_dir, undefined),
-	BaseDir = rebar_config:get_xconf(Config, base_dir),
+	BaseDir = my_base_dir(Config),
 	IsBaseDir = rebar_utils:get_cwd() =:= BaseDir,
 
 	IsPluginDir = filename:basename(rebar_utils:get_cwd()) =:= "ling_builder",
@@ -46,8 +45,7 @@ do_ling_build(Config, Continue) ->
 
 'ling-image'(Config, _AppFile) ->
 
-	%%BaseDir = rebar_config:get_global(base_dir, undefined),
-	BaseDir = rebar_config:get_xconf(Config, base_dir),
+	BaseDir = my_base_dir(Config),
 	IsBaseDir = rebar_utils:get_cwd() =:= BaseDir,
 
 	if not IsBaseDir ->
@@ -118,5 +116,17 @@ add_misc_files([{import,Pat}|LingOpts]) when is_list(Pat) ->
 	add_misc_files(LingOpts);
 add_misc_files([_|LingOpts]) ->
 	add_misc_files(LingOpts).
+
+%%
+%% rebar API with respect to determining the base directory changed at least two
+%% times. This function hides differences between rebar versions.
+%%
+my_base_dir(Config) ->
+	case erlang:function_exported(rebar_config, get_xconf, 2) of
+	true ->
+		rebar_config:get_xconf(Config, base_dir);
+	false ->
+		rebar_config:get_global(base_dir, undefined)
+	end.
 
 %%EOF
