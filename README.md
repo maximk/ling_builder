@@ -1,10 +1,9 @@
-
 # A rebar plugin for a Erlang on Xen Build Service
 
-The plugin - ling\_builder - adds a few command to rebar that allow building Xen
-images using Erlang on Xen [Build Service](build.erlangonxen.org).
+The plugin - ling\_builder - adds a few commands to rebar that allow building Xen
+images using Erlang on Xen [Build Service](http://build.erlangonxen.org).
 
-To use the plugin add the following dependency to your rebar.conf:
+To use the plugin add the following dependency to your rebar.config:
 
 	{ling_builder,".*",
 		{git,"git://github.com/maximk/ling_builder.git","master"}}
