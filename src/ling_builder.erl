@@ -1,11 +1,15 @@
 -module(ling_builder).
 
 -export(['ling-build'/2,'ling-image'/2,'ling-build-image'/2]).
+-export(['ling-build-ec2'/2,'ling-ec2-image'/2,'ling-build-ec2-image'/2]).
 
 'ling-build'(Config, _AppFile) ->
-	do_ling_build(Config, fun(_ProjName, _LingOpts) -> ok end).
+	do_ling_build(Config, elf, fun(_ProjName, _LingOpts) -> ok end).
 
-do_ling_build(Config, Continue) ->
+'ling-build-ec2'(Config, _AppFile) ->
+	do_ling_build(Config, ami, fun(_ProjName, _LingOpts) -> ok end).
+
+do_ling_build(Config, ImageType, Continue) ->
 
 	case whereis(ling_queue) of
 	undefined ->
@@ -31,7 +35,8 @@ do_ling_build(Config, Continue) ->
 	if IsBaseDir ->
 
 		ProjName = filename:basename(BaseDir),
-		LingOpts = rebar_config:get(Config, ling_builder_opts, []),
+		LingOpts0 = rebar_config:get(Config, ling_builder_opts, []),
+		LingOpts = [{image_type,ImageType}|LingOpts0],
 		add_misc_files(LingOpts),
 		ling_queue:start_build(ProjName, LingOpts),
 
@@ -80,6 +85,38 @@ retrieve_image(ProjName, LingOpts) ->
 		io:format("LBS: image is not (yet?) available~n", [])
 	end.
 
+'ling-ec2-image'(Config, _AppFile) ->
+
+	BaseDir = my_base_dir(Config),
+	IsBaseDir = rebar_utils:get_cwd() =:= BaseDir,
+
+	if not IsBaseDir ->
+		ok;
+	true ->
+
+		rebar_log:log(info, "starting inets~n", []),
+		application:start(crypto),
+		application:start(public_key),
+		application:start(ssl),
+		application:start(inets),
+
+		ProjName = filename:basename(BaseDir),
+		LingOpts = rebar_config:get(Config, ling_builder_opts, []),
+
+		retrieve_ami_id(ProjName, LingOpts)
+	end.
+
+retrieve_ami_id(ProjName, LingOpts) ->
+	Hdrs = [{"Accept","text/plain"}],
+	case build_service:call(get, "/build/" ++ ProjName ++ "/ami_id",
+									Hdrs, none, LingOpts) of
+	{ok,AmiId} ->
+		io:format("LBS: AMI generated successfuly: ~s~n", [AmiId]);
+
+	_Other ->
+		io:format("LBS: image is not (yet?) available~n", [])
+	end.
+
 'ling-build-image'(Config, _AppFile) ->
 
 	Continue = fun(ProjName, LingOpts) ->
@@ -92,17 +129,31 @@ retrieve_image(ProjName, LingOpts) ->
 	end,
 
 	%% same as ling-build but with different continuation
-	do_ling_build(Config, Continue).
+	do_ling_build(Config, elf, Continue).
+
+'ling-build-ec2-image'(Config, _AppFile) ->
+
+	Continue = fun(ProjName, LingOpts) ->
+		case get_build_status(ProjName, LingOpts) of
+		ok ->
+			retrieve_ami_id(ProjName, LingOpts);
+		failed ->
+			io:format("LBS: **** build failed ****~n", [])
+		end
+	end,
+
+	%% same as ling-build but with different continuation
+	do_ling_build(Config, ami, Continue).
 
 get_build_status(ProjName, LingOpts) ->
 	case build_service:call(get, "/build/" ++ ProjName ++ "/status",
 										[], none, LingOpts) of
 	{ok,"0"} ->
-		ok;
-
-	{ok,"1"} ->
 		receive after 3000 -> ok end,
 		get_build_status(ProjName, LingOpts);
+
+	{ok,"1"} ->
+		ok;
 
 	{ok,"99"} ->
 		failed
