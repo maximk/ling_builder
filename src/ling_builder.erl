@@ -96,6 +96,7 @@ retrieve_image(ProjName, LingOpts) ->
 
 		rebar_log:log(info, "starting inets~n", []),
 		application:start(crypto),
+		application:start(asn1),
 		application:start(public_key),
 		application:start(ssl),
 		application:start(inets),
