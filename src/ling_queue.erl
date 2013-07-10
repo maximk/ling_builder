@@ -97,6 +97,7 @@ start_build(ProjName, Files, ConnOpts, BuildOpts) ->
 
 	rebar_log:log(info, "starting inets~n", []),
 	application:start(crypto),
+	application:start(asn1),
 	application:start(public_key),
 	application:start(ssl),
 	application:start(inets),
