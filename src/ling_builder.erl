@@ -46,15 +46,12 @@ do_ling_build(Config, ImageType, Continue) ->
 			Continue(ProjName, LingOpts);
 
 		false ->
-			io:format("Error: invalid options (use -v for details)~n", []),
-			abort
+			{error,invalid_options}
 		end;
 
 	true ->
-		skip
-	end,
-
-	ok.
+		ok
+	end.
 
 'ling-image'(Config, _AppFile) ->
 
@@ -87,10 +84,12 @@ retrieve_image(ProjName, LingOpts) ->
 		rebar_log:log(info, "saving image to ~s [~w byte(s)]~n",
 								[ImageFile,byte_size(ImageBin)]),
 		ok = file:write_file(ImageFile, ImageBin),
-		io:format("LBS: image saved to ~s~n", [ImageFile]);
+		io:format("LBS: image saved to ~s~n", [ImageFile]),
+		ok;
 
-	_Other ->
-		io:format("LBS: image is not (yet?) available~n", [])
+	{error,_} =Error ->
+		io:format("LBS: image is not (yet?) available~n", []),
+		Error
 	end.
 
 'ling-ec2-image'(Config, _AppFile) ->
@@ -120,10 +119,12 @@ retrieve_ami_id(ProjName, LingOpts) ->
 	case build_service:call(get, "/build/" ++ ProjName ++ "/ami_id",
 									Hdrs, none, LingOpts) of
 	{ok,AmiId} ->
-		io:format("LBS: AMI generated successfuly: ~s~n", [AmiId]);
+		io:format("LBS: AMI generated successfuly: ~s~n", [AmiId]),
+		ok;
 
-	_Other ->
-		io:format("LBS: image is not (yet?) available~n", [])
+	{error,_} =Error ->
+		io:format("LBS: image is not (yet?) available~n", []),
+		Error
 	end.
 
 'ling-build-image'(Config, _AppFile) ->
@@ -133,7 +134,8 @@ retrieve_ami_id(ProjName, LingOpts) ->
 		ok ->
 			retrieve_image(ProjName, LingOpts);
 		failed ->
-			io:format("LBS: **** build failed ****~n", [])
+			io:format("LBS: **** build failed ****~n", []),
+			{error,failed}
 		end
 	end,
 
@@ -147,7 +149,8 @@ retrieve_ami_id(ProjName, LingOpts) ->
 		ok ->
 			retrieve_ami_id(ProjName, LingOpts);
 		failed ->
-			io:format("LBS: **** build failed ****~n", [])
+			io:format("LBS: **** build failed ****~n", []),
+			{error,failed}
 		end
 	end,
 
@@ -162,39 +165,39 @@ verify_options([], Last) ->
 verify_options([{build_host,BH}|Opts], Last) when is_list(BH) ->
 	verify_options(Opts, Last);
 verify_options([{build_host,_} =Opt|Opts], _Last) ->
-	rebar_log:log(info, "Bad build host option: ~p~n", [Opt]),
+	rebar_log:log(error, "Bad build host option: ~p~n", [Opt]),
 	verify_options(Opts, false);
 verify_options([{username,U}|Opts], Last) when is_list(U) ->
 	verify_options(Opts, Last);
 verify_options([{username,_} =Opt|Opts], _Last) ->
-	rebar_log:log(info, "Bad user name option: ~p~n", [Opt]),
+	rebar_log:log(error, "Bad user name option: ~p~n", [Opt]),
 	verify_options(Opts, false);
 verify_options([{password,Pwd}|Opts], Last) when is_list(Pwd) ->
 	verify_options(Opts, Last);
 verify_options([{password,_} =Opt|Opts], _Last) ->
-	rebar_log:log(info, "Bad password option: ~p~n", [Opt]),
+	rebar_log:log(error, "Bad password option: ~p~n", [Opt]),
 	verify_options(Opts, false);
 verify_options([{import,Pat}|Opts], Last) when is_list(Pat) ->
 	case filelib:wildcard(Pat) of
 	[] ->
-		rebar_log:log(info, "No matching files found: ~p~n", [Pat]),
+		rebar_log:log(error, "No matching files found: ~p~n", [Pat]),
 		verify_options(Opts, false);
 	_ ->
 		verify_options(Opts, Last)
 	end;
 verify_options([{import,_} =Opt|Opts], _Last) ->
-	rebar_log:log(info, "Bad import option: ~p~n", [Opt]),
+	rebar_log:log(error, "Bad import option: ~p~n", [Opt]),
 	verify_options(Opts, false);
 verify_options([{import_lib,Lib}|Opts], Last) when is_atom(Lib) ->
 	case code:lib_dir(Lib) of
 	{error,bad_name} ->
-		rebar_log:log(info, "No standard library found: ~p~n", [Lib]),
+		rebar_log:log(error, "No standard library found: ~p~n", [Lib]),
 		verify_options(Opts, false);
 	_ ->
 		verify_options(Opts, Last)
 	end;
 verify_options([{import_lib,_} =Opt|Opts], _Last) ->
-	rebar_log:log(info, "Bad import library option: ~p~n", [Opt]),
+	rebar_log:log(error, "Bad import library option: ~p~n", [Opt]),
 	verify_options(Opts, false).
 
 get_build_status(ProjName, LingOpts) ->
