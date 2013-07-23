@@ -34,13 +34,21 @@ do_ling_build(Config, ImageType, Continue) ->
 
 	if IsBaseDir ->
 
-		ProjName = filename:basename(BaseDir),
 		LingOpts0 = rebar_config:get(Config, ling_builder_opts, []),
-		LingOpts = [{image_type,ImageType}|LingOpts0],
-		add_misc_files(LingOpts),
-		ling_queue:start_build(ProjName, LingOpts),
+		case verify_options(LingOpts0) of
+		true ->
 
-		Continue(ProjName, LingOpts);
+			ProjName = filename:basename(BaseDir),
+			LingOpts = [{image_type,ImageType}|LingOpts0],
+			add_misc_files(LingOpts),
+			ling_queue:start_build(ProjName, LingOpts),
+
+			Continue(ProjName, LingOpts);
+
+		false ->
+			io:format("Error: invalid options (use -v for details)~n", []),
+			abort
+		end;
 
 	true ->
 		skip
@@ -145,6 +153,49 @@ retrieve_ami_id(ProjName, LingOpts) ->
 
 	%% same as ling-build but with different continuation
 	do_ling_build(Config, ami, Continue).
+
+verify_options(Opts) ->
+	verify_options(Opts, true).
+
+verify_options([], Last) ->
+	Last;
+verify_options([{build_host,BH}|Opts], Last) when is_list(BH) ->
+	verify_options(Opts, Last);
+verify_options([{build_host,_} =Opt|Opts], _Last) ->
+	rebar_log:log(info, "Bad build host option: ~p~n", [Opt]),
+	verify_options(Opts, false);
+verify_options([{username,U}|Opts], Last) when is_list(U) ->
+	verify_options(Opts, Last);
+verify_options([{username,_} =Opt|Opts], _Last) ->
+	rebar_log:log(info, "Bad user name option: ~p~n", [Opt]),
+	verify_options(Opts, false);
+verify_options([{password,Pwd}|Opts], Last) when is_list(Pwd) ->
+	verify_options(Opts, Last);
+verify_options([{password,_} =Opt|Opts], _Last) ->
+	rebar_log:log(info, "Bad password option: ~p~n", [Opt]),
+	verify_options(Opts, false);
+verify_options([{import,Pat}|Opts], Last) when is_list(Pat) ->
+	case filelib:wildcard(Pat) of
+	[] ->
+		rebar_log:log(info, "No matching files found: ~p~n", [Pat]),
+		verify_options(Opts, false);
+	_ ->
+		verify_options(Opts, Last)
+	end;
+verify_options([{import,_} =Opt|Opts], _Last) ->
+	rebar_log:log(info, "Bad import option: ~p~n", [Opt]),
+	verify_options(Opts, false);
+verify_options([{import_lib,Lib}|Opts], Last) when is_atom(Lib) ->
+	case code:lib_dir(Lib) of
+	{error,bad_name} ->
+		rebar_log:log(info, "No standard library found: ~p~n", [Lib]),
+		verify_options(Opts, false);
+	_ ->
+		verify_options(Opts, Last)
+	end;
+verify_options([{import_lib,_} =Opt|Opts], _Last) ->
+	rebar_log:log(info, "Bad import library option: ~p~n", [Opt]),
+	verify_options(Opts, false).
 
 get_build_status(ProjName, LingOpts) ->
 	case build_service:call(get, "/build/" ++ ProjName ++ "/status",
