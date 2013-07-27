@@ -89,9 +89,9 @@ check_opts([{import_lib,Lib} =Opt|Opts], ConnOpts, BuildOpts)
 check_opts([{image_type,Type} =Opt|Opts], ConnOpts, BuildOpts)
 		when is_atom(Type) ->
 	check_opts(Opts, ConnOpts, [Opt|BuildOpts]);
-check_opts([Opt|_Opts], _ConnOpts, _BuildOpts) ->
-	rebar_log:log(error, "invalid option: ~p~n", [Opt]),
-	invalid.
+check_opts([{strip_image,Flag} =Opt|Opts], ConnOpts, BuildOpts)
+		when is_boolean(Flag) ->
+	check_opts(Opts, ConnOpts, [Opt|BuildOpts]).
 
 start_build(ProjName, Files, ConnOpts, BuildOpts) ->
 
@@ -128,11 +128,14 @@ build_request_body(BuildOpts) ->
 	Apps = [App || {_,App} <- lists:filter(fun({import_lib,_}) -> true;
 					(_) -> false end, BuildOpts)],
 	ImgType = proplists:get_value(image_type, BuildOpts),
+	StripImage = proplists:get_value(strip_image, BuildOpts),
 	Json = {struct,[
 		{import_lib,
 			[erlang:atom_to_binary(A, utf8) || A <- Apps]},
 		{image_type,
-			erlang:atom_to_binary(ImgType, utf8)}
+			erlang:atom_to_binary(ImgType, utf8)},
+		{strip_image,
+			StripImage}
 	]},
 	list_to_binary(mochijson2:encode(Json)).
 

@@ -196,6 +196,11 @@ verify_options([{import_lib,Lib}|Opts], Last) when is_atom(Lib) ->
 	_ ->
 		verify_options(Opts, Last)
 	end;
+verify_options([{strip_image,Flag}|Opts], Last) when is_boolean(Flag) ->
+	verify_options(Opts, Last);
+verify_options([{strip_image,_} =Opt|Opts], _Last) ->
+	rebar_log:log(error, "Bad strip image option: ~p~n", [Opt]),
+	verify_options(Opts, false);
 verify_options([{import_lib,_} =Opt|Opts], _Last) ->
 	rebar_log:log(error, "Bad import library option: ~p~n", [Opt]),
 	verify_options(Opts, false).
