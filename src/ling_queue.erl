@@ -128,7 +128,7 @@ build_request_body(BuildOpts) ->
 	Apps = [App || {_,App} <- lists:filter(fun({import_lib,_}) -> true;
 					(_) -> false end, BuildOpts)],
 	ImgType = proplists:get_value(image_type, BuildOpts),
-	StripImage = proplists:get_value(strip_image, BuildOpts),
+	StripImage = proplists:get_value(strip_image, BuildOpts, false),
 	Json = {struct,[
 		{import_lib,
 			[erlang:atom_to_binary(A, utf8) || A <- Apps]},
