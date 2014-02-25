@@ -89,6 +89,9 @@ check_opts([{import_lib,Lib} =Opt|Opts], ConnOpts, BuildOpts)
 check_opts([{image_type,Type} =Opt|Opts], ConnOpts, BuildOpts)
 		when is_atom(Type) ->
 	check_opts(Opts, ConnOpts, [Opt|BuildOpts]);
+check_opts([{build_config,Cfg} =Opt|Opts], ConnOpts, BuildOpts)
+		when is_atom(Cfg) ->
+	check_opts(Opts, ConnOpts, [Opt|BuildOpts]);
 check_opts([{strip_image,Flag} =Opt|Opts], ConnOpts, BuildOpts)
 		when is_boolean(Flag) ->
 	check_opts(Opts, ConnOpts, [Opt|BuildOpts]).
@@ -128,16 +131,23 @@ build_request_body(BuildOpts) ->
 	Apps = [App || {_,App} <- lists:filter(fun({import_lib,_}) -> true;
 					(_) -> false end, BuildOpts)],
 	ImgType = proplists:get_value(image_type, BuildOpts),
+	BuildConfig = proplists:get_value(build_config, BuildOpts, default),
 	StripImage = proplists:get_value(strip_image, BuildOpts, false),
 	Json = {struct,[
 		{import_lib,
 			[erlang:atom_to_binary(A, utf8) || A <- Apps]},
 		{image_type,
 			erlang:atom_to_binary(ImgType, utf8)},
+		{build_config,
+			config_number(BuildConfig)},
 		{strip_image,
 			StripImage}
 	]},
 	list_to_binary(mochijson2:encode(Json)).
+
+config_number(default) -> 0;
+config_number(fastest) -> 0;
+config_number(debug) -> 1.
 
 relativise(File, Cwd) ->
 	case lists:prefix(Cwd, File) of

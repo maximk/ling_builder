@@ -27,6 +27,11 @@ accessible to your application during runtime. Example: {import,"priv/\*/\*}.
 Instructs the build service to import an entire standard Erlang application and
 make it available during runtime. Example: {import\_lib,crypto}.
 
+### {build\_config,Cfg}
+
+Selects the build configuration of the LING VM. Possible values are 'default',
+'fastest', and 'debug'. The default value is 'fastest'.
+
 ## Commands added by the plugin
 
 ### rebar ling-build

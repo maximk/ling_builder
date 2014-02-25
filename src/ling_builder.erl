@@ -231,6 +231,14 @@ verify_options([{import_lib,Lib}|Opts], Last) when is_atom(Lib) ->
 	_ ->
 		verify_options(Opts, Last)
 	end;
+verify_options([{build_config,Cfg}|Opts], Last) ->
+	case valid_config(Cfg) of
+	true ->
+		verify_options(Opts, Last);
+	false ->
+		rebar:log(error, "Bad build config option: ~p\n", [Cfg]),
+		verify_options(opts, false)
+	end;
 verify_options([{strip_image,Flag}|Opts], Last) when is_boolean(Flag) ->
 	verify_options(Opts, Last);
 verify_options([{strip_image,_} =Opt|Opts], _Last) ->
@@ -239,6 +247,11 @@ verify_options([{strip_image,_} =Opt|Opts], _Last) ->
 verify_options([{import_lib,_} =Opt|Opts], _Last) ->
 	rebar_log:log(error, "Bad import library option: ~p~n", [Opt]),
 	verify_options(Opts, false).
+
+valid_config(default) -> true;
+valid_config(fastest) -> true;
+valid_config(debug) -> true;
+valid_config(_) -> false.
 
 get_build_status(ProjName, LingOpts) ->
 	case build_service:call(get, "/build/" ++ ProjName ++ "/status",
