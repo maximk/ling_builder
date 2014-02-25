@@ -2,6 +2,7 @@
 
 -export(['ling-build'/2,'ling-image'/2,'ling-build-image'/2]).
 -export(['ling-build-ec2'/2,'ling-ec2-image'/2,'ling-build-ec2-image'/2]).
+-export(['ling-build-id'/2]).
 
 'ling-build'(Config, _AppFile) ->
 	do_ling_build(Config, elf, fun(_ProjName, _LingOpts) -> ok end).
@@ -124,6 +125,40 @@ retrieve_ami_id(ProjName, LingOpts) ->
 
 	{error,_} =Error ->
 		io:format("LBS: image is not (yet?) available~n", []),
+		Error
+	end.
+
+'ling-build-id'(Config, _AppFile) ->
+	BaseDir = my_base_dir(Config),
+	IsBaseDir = rebar_utils:get_cwd() =:= BaseDir,
+
+	if not IsBaseDir ->
+		ok;
+	true ->
+
+		rebar_log:log(info, "starting inets~n", []),
+		application:start(crypto),
+		application:start(asn1),
+		application:start(public_key),
+		application:start(ssl),
+		application:start(inets),
+
+		ProjName = filename:basename(BaseDir),
+		LingOpts = rebar_config:get(Config, ling_builder_opts, []),
+
+		retrieve_build_id(ProjName, LingOpts)
+	end.
+
+retrieve_build_id(ProjName, LingOpts) ->
+	Hdrs = [{"Accept","text/plain"}],
+	case build_service:call(get, "/build/" ++ ProjName ++ "/build_id",
+									Hdrs, none, LingOpts) of
+	{ok,BuildId} ->
+		io:format("~s\n", [BuildId]),
+		ok;
+
+	{error,_} =Error ->
+		io:format("LBS: last build info not (yet?) available~n", []),
 		Error
 	end.
 

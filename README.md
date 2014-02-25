@@ -37,6 +37,11 @@ Initiate the Xen ELF image build process.
 
 Retrieve the generated image.
 
+### rebar ling-build-id
+
+Retrieve the LING VM build identifier used for the last build. The identifier
+should be mentioned when reporting bugs.
+
 ### rebar ling-build-image
 
 The comand combines the effects of ling-build and ling-image commands. It
