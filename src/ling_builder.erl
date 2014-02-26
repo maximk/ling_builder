@@ -237,7 +237,7 @@ verify_options([{build_config,Cfg}|Opts], Last) ->
 		verify_options(Opts, Last);
 	false ->
 		rebar_log:log(error, "Bad build config option: ~p\n", [Cfg]),
-		verify_options(opts, false)
+		verify_options(Opts, false)
 	end;
 verify_options([{strip_image,Flag}|Opts], Last) when is_boolean(Flag) ->
 	verify_options(Opts, Last);
