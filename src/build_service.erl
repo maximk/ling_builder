@@ -23,6 +23,9 @@ call(Method, Slug, Hdrs, Body, ConnOpts) ->
 	{ok,{{_,200,_},_,RespBody}} -> 
 		{ok,RespBody};
 
+	{ok,{{_,201,_},_,_}} -> %% Created
+		ok;
+
 	{ok,{{_,204,_},_,_}} ->
 		ok;
 
@@ -31,6 +34,10 @@ call(Method, Slug, Hdrs, Body, ConnOpts) ->
 
 	{ok,{{_,404,_},_,_}} ->
 		not_found;
+
+	{ok,{{_,Status,_},_,_} =Error} when Status >= 400 ->
+		rebar_log:log(error, "~p", [Error]),
+		unknown;
 
 	Other ->
 		rebar_log:log(error, "~p", [Other]),
